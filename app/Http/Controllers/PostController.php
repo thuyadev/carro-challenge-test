@@ -2,77 +2,37 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Post\PostLikeFormRequest;
+use App\Http\Resources\Post\PostResource;
 use App\Models\Like;
 use App\Models\Post;
+use App\Services\Post\PostService;
+use App\Traits\ResponseTrait;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PostController extends Controller
 {
-    public function list()
+    use ResponseTrait;
+
+    private $postService;
+
+    public function __construct(PostService $postService)
     {
-        $posts = Post::get();
-        
-        $data = collect();
-        foreach ($posts as $post) {
-            $data->add([
-                'id'          => $post->id,
-                'title'       => $post->title,
-                'description' => $post->description,
-                'tags'        => $post->tags,
-                'like_counts' => $post->likes->count(),
-                'created_at'  => $post->created_at,
-            ]);
-        }
-        return response()->json([
-            'data' => $data,
-        ]);
+        $this->postService = $postService;
     }
-    
-    public function toggleReaction(Request $request)
+
+    public function list(): JsonResponse
     {
-        $request->validate([
-            'post_id' => 'required|int|exists:posts,id',
-            'like'   => 'required|boolean'
-        ]);
-        
-        $post = Post::find($request->post_id);
-        if(!$post) {
-            return response()->json([
-                'status' => 404,
-                'message' => 'model not found'
-            ]);
-        }
-        
-        if($post->user_id == auth()->id()) {
-            return response()->json([
-                'status' => 500,
-                'message' => 'You cannot like your post'
-            ]);
-        }
-        
-        $like = Like::where('post_id', $request->post_id)->where('user_id', auth()->id())->first();
-        if($like && $like->post_id == $request->post_id && $request->like) {
-            return response()->json([
-                'status' => 500,
-                'message' => 'You already liked this post'
-            ]);
-        }elseif($like && $like->post_id == $request->post_id && !$request->like) {
-            $like->delete();
-            
-            return response()->json([
-                'status' => 200,
-                'message' => 'You unlike this post successfully'
-            ]);
-        }
-        
-        Like::create([
-            'post_id' => $request->post_id,
-            'user_id' => auth()->id()
-        ]);
-        
-        return response()->json([
-            'status' => 200,
-            'message' => 'You like this post successfully'
-        ]);
+        $posts = $this->postService->list();
+
+        return $this->responseSuccess('success', PostResource::collection($posts));
+    }
+
+    public function toggleReaction(PostLikeFormRequest $request): JsonResponse
+    {
+        $this->postService->toggleReaction($request);
+
+        return $this->responseMsgOnly('You like this post successfully');
     }
 }

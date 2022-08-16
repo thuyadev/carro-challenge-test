@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\HR\ApplicantResource;
 use App\Services\EmployeeManagement\Applicant;
-use Illuminate\Http\Request;
+use App\Traits\ResponseTrait;
+use Illuminate\Http\JsonResponse;
 
 class JobController extends Controller
 {
+    use ResponseTrait;
+
     protected $applicant;
     
     public function __construct(Applicant $applicant)
@@ -14,12 +18,10 @@ class JobController extends Controller
         $this->applicant = $applicant;
     }
     
-    public function apply(Request $request)
+    public function apply(): JsonResponse
     {
         $data = $this->applicant->applyJob();
         
-        return response()->json([
-            'data' => $data
-        ]);
+        return $this->responseSuccess('success', new ApplicantResource($data));
     }
 }
